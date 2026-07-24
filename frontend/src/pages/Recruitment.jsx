@@ -54,6 +54,13 @@ export default function Recruitment() {
     }
   }
 
+  async function saveApplicantEdit(applicantId, fields) {
+    await api.patch(`/applicants/${applicantId}`, fields);
+    const { applicants } = await api.get('/applicants');
+    setApplicants(applicants);
+    setSelected(applicants.find((a) => a.id === applicantId) || null);
+  }
+
   if (loading) return <div className="text-ink/50">Loading pipeline…</div>;
 
   return (
@@ -117,7 +124,7 @@ export default function Recruitment() {
         <ImportCsvModal onClose={() => setShowImport(false)} onDone={() => { setShowImport(false); load(); }} />
       )}
       {selected && (
-        <ApplicantModal applicant={selected} cohorts={cohorts} onClose={() => setSelected(null)} onMove={moveStage} />
+        <ApplicantModal applicant={selected} cohorts={cohorts} onClose={() => setSelected(null)} onMove={moveStage} onSaveEdit={saveApplicantEdit} />
       )}
     </div>
   );
@@ -270,13 +277,19 @@ function AddApplicantModal({ cohorts, onClose, onSaved }) {
   );
 }
 
-function ApplicantModal({ applicant, cohorts, onClose, onMove }) {
+function ApplicantModal({ applicant, cohorts, onClose, onMove, onSaveEdit }) {
   const [note, setNote] = useState('');
   const [createAccount, setCreateAccount] = useState(true);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [assessmentScore, setAssessmentScore] = useState(undefined); // undefined = loading, null = no attempt
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: applicant.name, email: applicant.email, phone: applicant.phone || '',
+    source: applicant.source || '', cohort_id: applicant.cohort_id || '', notes: applicant.notes || '',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     api.get('/assessment/attempts').then(({ attempts }) => {
@@ -298,58 +311,102 @@ function ApplicantModal({ applicant, cohorts, onClose, onMove }) {
     }
   }
 
+  async function saveEdit() {
+    setSavingEdit(true);
+    setError('');
+    try {
+      await onSaveEdit(applicant.id, editForm);
+      setEditing(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
   return (
     <Modal onClose={onClose} title={applicant.name}>
       <div className="space-y-4">
-        <div className="text-sm space-y-1">
-          <div><span className="text-ink/50">Email:</span> {applicant.email}</div>
-          {applicant.phone && <div><span className="text-ink/50">Phone:</span> {applicant.phone}</div>}
-          {applicant.source && <div><span className="text-ink/50">Source:</span> {applicant.source}</div>}
-          {applicant.cohort_name && <div><span className="text-ink/50">Cohort:</span> {applicant.cohort_name}</div>}
-          {assessmentScore && (
-            <div>
-              <span className="text-ink/50">Assessment:</span>{' '}
-              <span className={`font-mono font-semibold ${assessmentScore.score_pct >= 70 ? 'text-teal' : assessmentScore.score_pct >= 50 ? 'text-gold' : 'text-rust'}`}>
-                {assessmentScore.score_pct}%
-              </span>
+        {!editing ? (
+          <div className="text-sm space-y-1">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <div><span className="text-ink/50">Email:</span> {applicant.email}</div>
+                {applicant.phone && <div><span className="text-ink/50">Phone:</span> {applicant.phone}</div>}
+                {applicant.source && <div><span className="text-ink/50">Source:</span> {applicant.source}</div>}
+                {applicant.cohort_name && <div><span className="text-ink/50">Cohort:</span> {applicant.cohort_name}</div>}
+              </div>
+              <button onClick={() => setEditing(true)} className="text-xs text-gold font-medium hover:underline shrink-0">Edit</button>
             </div>
-          )}
-          {applicant.notes && <div className="pt-1 text-ink/70">{applicant.notes}</div>}
-          <div className="pt-1"><span className="pill bg-ink text-sand">{applicant.stage.replace('_', ' ')}</span></div>
-        </div>
-
-        <div>
-          <label className="label">Add a note (optional)</label>
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Great interview, strong communication" />
-        </div>
-
-        {applicant.stage !== 'hired' && applicant.stage !== 'not_hired' && (
-          <div className="border border-black/10 rounded-md p-3 bg-black/[0.02]">
-            <div className="text-xs font-medium mb-2">Moving to Hired will create their VA login:</div>
-            <label className="flex items-center gap-2 text-sm mb-2">
-              <input type="checkbox" checked={createAccount} onChange={(e) => setCreateAccount(e.target.checked)} />
-              Create account automatically
-            </label>
-            {createAccount && (
-              <input className="input" type="text" placeholder="Temporary password (optional, default provided)" value={password} onChange={(e) => setPassword(e.target.value)} />
+            {assessmentScore && (
+              <div>
+                <span className="text-ink/50">Assessment:</span>{' '}
+                <span className={`font-mono font-semibold ${assessmentScore.score_pct >= 70 ? 'text-teal' : assessmentScore.score_pct >= 50 ? 'text-gold' : 'text-rust'}`}>
+                  {assessmentScore.score_pct}%
+                </span>
+              </div>
             )}
+            {applicant.notes && <div className="pt-1 text-ink/70">{applicant.notes}</div>}
+            <div className="pt-1"><span className="pill bg-ink text-sand">{applicant.stage.replace('_', ' ')}</span></div>
+          </div>
+        ) : (
+          <div className="space-y-2 bg-black/[0.02] border border-black/10 rounded-md p-3">
+            <div><label className="label">Name</label><input className="input" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
+            <div><label className="label">Email</label><input type="email" className="input" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} /></div>
+            <div><label className="label">Phone</label><input className="input" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} /></div>
+            <div><label className="label">Source</label><input className="input" value={editForm.source} onChange={(e) => setEditForm({ ...editForm, source: e.target.value })} /></div>
+            <div>
+              <label className="label">Cohort</label>
+              <select className="input" value={editForm.cohort_id} onChange={(e) => setEditForm({ ...editForm, cohort_id: e.target.value })}>
+                <option value="">— None —</option>
+                {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div><label className="label">Notes</label><textarea className="input" rows={2} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} /></div>
+            {error && <div className="text-sm text-rust">{error}</div>}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEditing(false)} className="btn-ghost text-sm">Cancel</button>
+              <button onClick={saveEdit} disabled={savingEdit} className="btn-gold text-sm">{savingEdit ? 'Saving…' : 'Save'}</button>
+            </div>
           </div>
         )}
 
-        {error && <div className="text-sm text-rust">{error}</div>}
+        {!editing && (
+          <>
+            <div>
+              <label className="label">Add a note (optional)</label>
+              <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Great interview, strong communication" />
+            </div>
 
-        <div className="flex flex-wrap gap-2 pt-2">
-          {STAGES.filter((s) => s.key !== applicant.stage).map((s) => (
-            <button
-              key={s.key}
-              disabled={busy}
-              onClick={() => handleMove(s.key)}
-              className={s.key === 'hired' ? 'btn-gold' : s.key === 'not_hired' ? 'btn bg-rust/10 text-rust hover:bg-rust/20' : 'btn-ghost border border-black/10'}
-            >
-              Move to {s.label}
-            </button>
-          ))}
-        </div>
+            {applicant.stage !== 'hired' && applicant.stage !== 'not_hired' && (
+              <div className="border border-black/10 rounded-md p-3 bg-black/[0.02]">
+                <div className="text-xs font-medium mb-2">Moving to Hired will create their VA login:</div>
+                <label className="flex items-center gap-2 text-sm mb-2">
+                  <input type="checkbox" checked={createAccount} onChange={(e) => setCreateAccount(e.target.checked)} />
+                  Create account automatically
+                </label>
+                {createAccount && (
+                  <input className="input" type="text" placeholder="Temporary password (optional, default provided)" value={password} onChange={(e) => setPassword(e.target.value)} />
+                )}
+              </div>
+            )}
+
+            {error && <div className="text-sm text-rust">{error}</div>}
+
+            <div className="flex flex-wrap gap-2 pt-2">
+              {STAGES.filter((s) => s.key !== applicant.stage).map((s) => (
+                <button
+                  key={s.key}
+                  disabled={busy}
+                  onClick={() => handleMove(s.key)}
+                  className={s.key === 'hired' ? 'btn-gold' : s.key === 'not_hired' ? 'btn bg-rust/10 text-rust hover:bg-rust/20' : 'btn-ghost border border-black/10'}
+                >
+                  Move to {s.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </Modal>
   );
