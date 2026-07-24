@@ -3,24 +3,30 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../api';
 
-export default function VaHome() {
+export default function VaHome({ userId, displayName }) {
   const { user } = useAuth();
+  const targetId = userId || user.id;
+  const name = displayName || user.name;
   const [progress, setProgress] = useState([]);
   const [clients, setClients] = useState([]);
   const [hoursTotal, setHoursTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([api.get('/onboarding/progress'), api.get('/clients'), api.get('/hours')])
+    const isAdminViewing = userId && userId !== user.id;
+    const onboardingUrl = isAdminViewing ? `/onboarding/progress?user_id=${targetId}` : '/onboarding/progress';
+    const clientsUrl = isAdminViewing ? `/clients?va_user_id=${targetId}` : '/clients';
+    const hoursUrl = isAdminViewing ? `/hours?va_user_id=${targetId}` : '/hours';
+    Promise.all([api.get(onboardingUrl), api.get(clientsUrl), api.get(hoursUrl)])
       .then(([p, c, h]) => {
         setProgress(p.progress);
         setClients(c.clients);
         setHoursTotal(h.total_hours);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [targetId]);
 
-  if (loading) return <div className="text-ink/50">Loading your dashboard…</div>;
+  if (loading) return <div className="text-ink/50">Loading dashboard…</div>;
 
   const completed = progress.filter((p) => p.completed).length;
   const onboardingDone = progress.length > 0 && completed === progress.length;
@@ -28,7 +34,7 @@ export default function VaHome() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-display font-bold">Welcome back, {user.name.split(' ')[0]}</h1>
+        <h1 className="text-2xl font-display font-bold">Welcome back, {name.split(' ')[0]}</h1>
         <p className="text-ink/50 text-sm mt-1">Here's where things stand.</p>
       </div>
 

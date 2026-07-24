@@ -7,17 +7,18 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.get('/', (req, res) => {
-  if (req.user.role === 'admin') {
+  if (req.user.role === 'admin' && !req.query.va_user_id) {
     const clients = db.prepare('SELECT * FROM clients ORDER BY name').all();
     return res.json({ clients });
   }
-  // VAs only see clients they're assigned to
+  // VAs see their own assigned clients; admins can view a specific VA's via ?va_user_id=
+  const targetVa = req.user.role === 'admin' ? req.query.va_user_id : req.user.id;
   const clients = db.prepare(`
     SELECT c.* FROM clients c
     JOIN assignments a ON a.client_id = c.id
     WHERE a.va_user_id = ? AND a.status = 'active'
     ORDER BY c.name
-  `).all(req.user.id);
+  `).all(targetVa);
   res.json({ clients });
 });
 

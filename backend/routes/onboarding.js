@@ -7,6 +7,19 @@ const { sendOnboardingReminderEmail } = require('../email');
 const router = express.Router();
 router.use(requireAuth);
 
+// Onboarding info doc (work schedule, pay, access instructions, etc.)
+// Viewable by anyone logged in — VAs need to read it too — editable by admin only.
+router.get('/info', (req, res) => {
+  const row = db.prepare(`SELECT value FROM settings WHERE key = 'onboarding_info'`).get();
+  res.json({ info: row?.value || '' });
+});
+
+router.patch('/info', requireAdmin, (req, res) => {
+  const { info } = req.body;
+  db.prepare(`INSERT INTO settings (key, value) VALUES ('onboarding_info', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(info || '');
+  res.json({ ok: true });
+});
+
 // Template management (admin only)
 router.get('/templates', requireAdmin, (req, res) => {
   const templates = db.prepare('SELECT * FROM onboarding_templates ORDER BY sort_order').all();

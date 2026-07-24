@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useBranding } from '../context/BrandingContext.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 export default function Apply() {
+  const { orgName } = useBranding();
   const [form, setForm] = useState({ name: '', email: '', phone: '', source: '', notes: '', honeypot: '' });
   const [status, setStatus] = useState('idle'); // idle | submitting | done | error
   const [error, setError] = useState('');
@@ -28,20 +30,27 @@ export default function Apply() {
 
   if (status === 'done') {
     return (
-      <div className="min-h-screen bg-ink flex items-center justify-center px-4">
-        <div className="max-w-sm text-center">
+      <div className="min-h-screen bg-ink relative overflow-hidden flex items-center justify-center px-4">
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(600px circle at 50% 30%, rgba(46,156,143,0.18), transparent 60%)',
+        }} />
+        <div className="max-w-sm text-center relative animate-pop-in">
+          <div className="text-4xl mb-4">🎉</div>
           <div className="font-display font-bold text-2xl text-sand mb-3">You're in.</div>
-          <p className="text-sand/60 text-sm">Thanks for applying to Freedom VA. We'll review your application and reach out about next steps.</p>
+          <p className="text-sand/60 text-sm">Thanks for applying to {orgName}. We'll review your application and reach out about next steps.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-ink flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-ink relative overflow-hidden flex items-center justify-center px-4 py-12">
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: 'radial-gradient(600px circle at 50% 0%, rgba(217,164,65,0.16), transparent 60%), radial-gradient(500px circle at 100% 100%, rgba(46,156,143,0.12), transparent 60%)',
+      }} />
+      <div className="w-full max-w-md relative animate-fade-up">
         <div className="text-center mb-8">
-          <div className="font-display font-bold text-2xl text-sand tracking-tight">Freedom VA</div>
+          <div className="font-display font-bold text-2xl text-sand tracking-tight">{orgName}</div>
           <div className="text-sand/50 text-sm uppercase tracking-widest mt-1">Apply to Train</div>
         </div>
         <form onSubmit={submit} className="card p-6 space-y-4">

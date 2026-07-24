@@ -2,12 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../api';
 
-export default function Hours() {
+export default function Hours({ userId } = {}) {
   const { user } = useAuth();
-  return user.role === 'admin' ? <AdminHours /> : <VaHours /> ;
+  if (userId && userId !== user.id) return <VaHours userId={userId} />;
+  return user.role === 'admin' ? <AdminHours /> : <VaHours />;
 }
 
-function VaHours() {
+function VaHours({ userId }) {
+  const { user } = useAuth();
+  const targetId = userId || user.id;
+  const isAdminViewing = userId && userId !== user.id;
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [clients, setClients] = useState([]);
@@ -17,20 +21,22 @@ function VaHours() {
   const [error, setError] = useState('');
 
   async function load() {
-    const [h, c] = await Promise.all([api.get('/hours'), api.get('/clients')]);
+    const hoursUrl = isAdminViewing ? `/hours?va_user_id=${targetId}` : '/hours';
+    const clientsUrl = isAdminViewing ? `/clients?va_user_id=${targetId}` : '/clients';
+    const [h, c] = await Promise.all([api.get(hoursUrl), api.get(clientsUrl)]);
     setLogs(h.logs);
     setTotal(h.total_hours);
     setClients(c.clients);
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [targetId]);
 
   async function submit(e) {
     e.preventDefault();
     setSaving(true);
     setError('');
     try {
-      await api.post('/hours', { ...form, client_id: form.client_id || null, hours: Number(form.hours) });
+      await api.post('/hours', { ...form, client_id: form.client_id || null, hours: Number(form.hours), va_user_id: isAdminViewing ? targetId : undefined });
       setForm({ client_id: '', log_date: new Date().toISOString().slice(0, 10), hours: '', description: '' });
       load();
     } catch (err) {

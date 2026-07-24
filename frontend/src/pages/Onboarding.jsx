@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../api';
 import Documents from '../components/Documents.jsx';
+import OnboardingInfoView from '../components/OnboardingInfoView.jsx';
+import CompanyDocuments from '../components/CompanyDocuments.jsx';
 
-export default function Onboarding() {
+export default function Onboarding({ userId } = {}) {
   const { user } = useAuth();
+  if (userId && userId !== user.id) return <ChecklistFor userId={userId} title="Onboarding" admin viewingAs />;
   return user.role === 'admin' ? <AdminOnboarding /> : <ChecklistFor userId={user.id} title="My Onboarding" />;
 }
 
@@ -14,14 +17,25 @@ function AdminOnboarding() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [templates, setTemplates] = useState([]);
   const [newTemplate, setNewTemplate] = useState('');
+  const [infoText, setInfoText] = useState('');
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [savingInfo, setSavingInfo] = useState(false);
 
   async function load() {
-    const [o, t] = await Promise.all([api.get('/onboarding/overview'), api.get('/onboarding/templates')]);
+    const [o, t, i] = await Promise.all([api.get('/onboarding/overview'), api.get('/onboarding/templates'), api.get('/onboarding/info')]);
     setOverview(o.overview);
     setTemplates(t.templates);
+    setInfoText(i.info);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
+
+  async function saveInfo() {
+    setSavingInfo(true);
+    await api.patch('/onboarding/info', { info: infoText });
+    setSavingInfo(false);
+    setEditingInfo(false);
+  }
 
   async function addTemplate(e) {
     e.preventDefault();
@@ -78,6 +92,35 @@ function AdminOnboarding() {
       </div>
 
       <div className="card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="font-display font-semibold">Welcome Packet</h2>
+            <p className="text-xs text-ink/50 mt-0.5">Work schedule, pay, and access instructions shown to every VA on their onboarding page.</p>
+          </div>
+          {!editingInfo && <button onClick={() => setEditingInfo(true)} className="text-xs text-gold font-medium hover:underline shrink-0">Edit</button>}
+        </div>
+        {editingInfo ? (
+          <div className="space-y-2">
+            <textarea
+              className="input font-mono text-xs"
+              rows={16}
+              value={infoText}
+              onChange={(e) => setInfoText(e.target.value)}
+            />
+            <p className="text-xs text-ink/40">Blank line = new paragraph. Lines starting with "* " become a bullet list.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEditingInfo(false)} className="btn-ghost text-sm">Cancel</button>
+              <button onClick={saveInfo} disabled={savingInfo} className="btn-gold text-sm">{savingInfo ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        ) : (
+          <OnboardingInfoView text={infoText} />
+        )}
+      </div>
+
+      <CompanyDocuments adminEditable />
+
+      <div className="card p-5">
         <h2 className="font-display font-semibold mb-3">Checklist Template</h2>
         <p className="text-xs text-ink/50 mb-3">This list is auto-assigned to every VA when they're hired.</p>
         <div className="space-y-1 mb-3">
@@ -118,13 +161,18 @@ function RemindButton({ userId }) {
   );
 }
 
-function ChecklistFor({ userId, title, admin = false }) {
+function ChecklistFor({ userId, title, admin = false, viewingAs = false }) {
   const [progress, setProgress] = useState([]);
+  const [infoText, setInfoText] = useState('');
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    const { progress } = await api.get(`/onboarding/progress${admin ? `?user_id=${userId}` : ''}`);
-    setProgress(progress);
+    const [p, i] = await Promise.all([
+      api.get(`/onboarding/progress${admin ? `?user_id=${userId}` : ''}`),
+      api.get('/onboarding/info'),
+    ]);
+    setProgress(p.progress);
+    setInfoText(i.info);
     setLoading(false);
   }
   useEffect(() => { load(); }, [userId]);
@@ -140,12 +188,19 @@ function ChecklistFor({ userId, title, admin = false }) {
 
   return (
     <div className="space-y-6">
-      {!admin && (
+      {(!admin || viewingAs) && (
         <div>
           <h1 className="text-2xl font-display font-bold">{title}</h1>
-          <p className="text-ink/50 text-sm mt-1">Complete each step to finish your onboarding.</p>
+          <p className="text-ink/50 text-sm mt-1">Complete each step to finish onboarding.</p>
         </div>
       )}
+      {(!admin || viewingAs) && infoText && (
+        <div className="card p-5">
+          <h2 className="font-display font-semibold mb-3">Welcome Packet</h2>
+          <OnboardingInfoView text={infoText} />
+        </div>
+      )}
+      {(!admin || viewingAs) && <CompanyDocuments />}
       <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <span className="font-display font-semibold">{admin ? title : 'Checklist'}</span>

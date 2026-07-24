@@ -42,9 +42,51 @@ router.post('/apply', async (req, res) => {
   res.status(201).json({ ok: true });
 });
 
-// Lets the apply page show your org name without needing login.
-router.get('/apply/info', (req, res) => {
-  res.json({ org: process.env.ORG_NAME || 'Freedom VA' });
+// Lets the apply/login pages show your org name without needing login.
+router.get('/info', (req, res) => {
+  const row = db.prepare(`SELECT value FROM settings WHERE key = 'org_name'`).get();
+  res.json({ org: row?.value || 'My Freedom VA' });
+});
+
+// Public assessment: fetch questions WITHOUT correct answers.
+router.get('/assessment/questions', (req, res) => {
+  const rows = db.prepare('SELECT id, question, options, category FROM assessment_questions ORDER BY sort_order').all();
+  res.json({ questions: rows.map(r => ({ ...r, options: JSON.parse(r.options) })) });
+});
+
+// Public assessment submission — scored entirely server-side. The response
+// only ever includes the overall score, never which specific answers were
+// wrong, so a candidate can't learn the answer key from their own result.
+router.post('/assessment/submit', (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  if (isRateLimited(ip)) {
+    return res.status(429).json({ error: 'Too many submissions. Please try again later.' });
+  }
+
+  const { name, email, phone, answers } = req.body;
+  if (!name || !email || !answers || typeof answers !== 'object') {
+    return res.status(400).json({ error: 'Name, email, and answers are required' });
+  }
+
+  const questions = db.prepare('SELECT id, correct_index FROM assessment_questions').all();
+  let correctCount = 0;
+  questions.forEach((q) => {
+    if (answers[q.id] === q.correct_index) correctCount += 1;
+  });
+  const total = questions.length;
+  const scorePct = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+
+  // Try to link this attempt to an existing applicant by email, so admins
+  // see the score right alongside that person in the recruitment pipeline.
+  const applicant = db.prepare('SELECT id FROM applicants WHERE LOWER(email) = LOWER(?) ORDER BY applied_at DESC LIMIT 1').get(email.trim());
+
+  const id = uuid();
+  db.prepare(`
+    INSERT INTO assessment_attempts (id, name, email, phone, applicant_id, total_questions, correct_count, score_pct, answers)
+    VALUES (?,?,?,?,?,?,?,?,?)
+  `).run(id, name.trim(), email.trim(), phone || null, applicant?.id || null, total, correctCount, scorePct, JSON.stringify(answers));
+
+  res.status(201).json({ score_pct: scorePct, correct_count: correctCount, total_questions: total });
 });
 
 module.exports = router;

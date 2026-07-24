@@ -2,15 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../api';
 
-export default function Clients() {
+export default function Clients({ userId } = {}) {
   const { user } = useAuth();
+  if (userId && userId !== user.id) return <VaClients userId={userId} />;
   return user.role === 'admin' ? <AdminClients /> : <VaClients />;
 }
 
-function VaClients() {
+function VaClients({ userId }) {
+  const { user } = useAuth();
+  const targetId = userId || user.id;
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { api.get('/clients').then((d) => setClients(d.clients)).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    const isAdminViewing = userId && userId !== user.id;
+    const url = isAdminViewing ? `/clients?va_user_id=${targetId}` : '/clients';
+    api.get(url).then((d) => setClients(d.clients)).finally(() => setLoading(false));
+  }, [targetId]);
   if (loading) return <div className="text-ink/50">Loading clients…</div>;
   return (
     <div className="space-y-6">
@@ -126,6 +133,18 @@ function ClientDetailModal({ data, vas, onClose, onChanged }) {
   const [rate, setRate] = useState('');
   const [hoursPerWeek, setHoursPerWeek] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editingContact, setEditingContact] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    name: client.name, contact_name: client.contact_name || '', contact_email: client.contact_email || '', notes: client.notes || '',
+  });
+
+  async function saveContact() {
+    setSaving(true);
+    await api.patch(`/clients/${client.id}`, contactForm);
+    setSaving(false);
+    setEditingContact(false);
+    onChanged();
+  }
 
   async function assign(e) {
     e.preventDefault();
@@ -150,7 +169,30 @@ function ClientDetailModal({ data, vas, onClose, onChanged }) {
   return (
     <Modal title={client.name} onClose={onClose}>
       <div className="space-y-4">
-        {client.contact_email && <div className="text-sm text-ink/60">{client.contact_name} · {client.contact_email}</div>}
+        {!editingContact ? (
+          <div className="flex items-start justify-between">
+            <div className="text-sm text-ink/60">
+              {contactForm.contact_name && <div>{contactForm.contact_name}</div>}
+              {contactForm.contact_email && <div>{contactForm.contact_email}</div>}
+              {contactForm.notes && <div className="text-ink/40 mt-1">{contactForm.notes}</div>}
+              {!contactForm.contact_name && !contactForm.contact_email && !contactForm.notes && (
+                <span className="text-ink/30">No contact details yet</span>
+              )}
+            </div>
+            <button onClick={() => setEditingContact(true)} className="text-xs text-gold font-medium hover:underline shrink-0">Edit</button>
+          </div>
+        ) : (
+          <div className="space-y-2 bg-black/[0.02] border border-black/10 rounded-md p-3">
+            <div><label className="label">Client Name</label><input className="input" value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} /></div>
+            <div><label className="label">Contact Name</label><input className="input" value={contactForm.contact_name} onChange={(e) => setContactForm({ ...contactForm, contact_name: e.target.value })} /></div>
+            <div><label className="label">Contact Email</label><input type="email" className="input" value={contactForm.contact_email} onChange={(e) => setContactForm({ ...contactForm, contact_email: e.target.value })} /></div>
+            <div><label className="label">Notes</label><textarea className="input" rows={2} value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} /></div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEditingContact(false)} className="btn-ghost text-sm">Cancel</button>
+              <button onClick={saveContact} disabled={saving} className="btn-gold text-sm">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        )}
 
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wide text-ink/50 mb-2">Assigned VAs</h4>

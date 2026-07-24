@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { useBranding } from '../context/BrandingContext.jsx';
 
 const STAGE_LABELS = {
   applied: 'Applied',
@@ -12,6 +13,7 @@ const STAGE_LABELS = {
 };
 
 export default function Overview() {
+  const { orgName } = useBranding();
   const [applicants, setApplicants] = useState([]);
   const [cohorts, setCohorts] = useState([]);
   const [onboardingOverview, setOnboardingOverview] = useState([]);
@@ -47,7 +49,7 @@ export default function Overview() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-display font-bold">Overview</h1>
-        <p className="text-ink/50 text-sm mt-1">Recruitment, training and workforce snapshot for Freedom VA.</p>
+        <p className="text-ink/50 text-sm mt-1">Recruitment, training and workforce snapshot for {orgName}.</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

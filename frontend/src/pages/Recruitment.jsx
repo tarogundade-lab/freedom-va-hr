@@ -33,6 +33,7 @@ export default function Recruitment() {
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [celebrate, setCelebrate] = useState(null);
 
   async function load() {
     const [a, c] = await Promise.all([api.get('/applicants'), api.get('/cohorts')]);
@@ -47,6 +48,10 @@ export default function Recruitment() {
     await api.post(`/applicants/${applicant.id}/stage`, { stage, ...extra });
     await load();
     setSelected(null);
+    if (stage === 'hired') {
+      setCelebrate(applicant.name);
+      setTimeout(() => setCelebrate(null), 3000);
+    }
   }
 
   if (loading) return <div className="text-ink/50">Loading pipeline…</div>;
@@ -92,6 +97,18 @@ export default function Recruitment() {
           );
         })}
       </div>
+
+      {celebrate && (
+        <div className="fixed bottom-6 right-6 z-50 animate-pop-in">
+          <div className="card px-5 py-4 shadow-lg border-teal/30 bg-teal/5 flex items-center gap-3">
+            <span className="text-2xl">🎉</span>
+            <div>
+              <div className="font-medium text-sm">{celebrate} is hired!</div>
+              <div className="text-xs text-ink/50">Welcome email sent, onboarding checklist assigned.</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <AddApplicantModal cohorts={cohorts} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
@@ -259,6 +276,14 @@ function ApplicantModal({ applicant, cohorts, onClose, onMove }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [assessmentScore, setAssessmentScore] = useState(undefined); // undefined = loading, null = no attempt
+
+  useEffect(() => {
+    api.get('/assessment/attempts').then(({ attempts }) => {
+      const match = attempts.find((a) => a.email.toLowerCase() === applicant.email.toLowerCase());
+      setAssessmentScore(match || null);
+    }).catch(() => setAssessmentScore(null));
+  }, [applicant.email]);
 
   async function handleMove(stage) {
     setBusy(true);
@@ -281,6 +306,14 @@ function ApplicantModal({ applicant, cohorts, onClose, onMove }) {
           {applicant.phone && <div><span className="text-ink/50">Phone:</span> {applicant.phone}</div>}
           {applicant.source && <div><span className="text-ink/50">Source:</span> {applicant.source}</div>}
           {applicant.cohort_name && <div><span className="text-ink/50">Cohort:</span> {applicant.cohort_name}</div>}
+          {assessmentScore && (
+            <div>
+              <span className="text-ink/50">Assessment:</span>{' '}
+              <span className={`font-mono font-semibold ${assessmentScore.score_pct >= 70 ? 'text-teal' : assessmentScore.score_pct >= 50 ? 'text-gold' : 'text-rust'}`}>
+                {assessmentScore.score_pct}%
+              </span>
+            </div>
+          )}
           {applicant.notes && <div className="pt-1 text-ink/70">{applicant.notes}</div>}
           <div className="pt-1"><span className="pill bg-ink text-sand">{applicant.stage.replace('_', ' ')}</span></div>
         </div>

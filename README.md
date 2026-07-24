@@ -14,12 +14,16 @@ Built as a full-stack project so it can be deployed properly (not just a chat de
 | **Recruitment** | Kanban-style pipeline: Applied → Screening → Interview → In Training → Hired / Not Hired. Hiring an applicant can auto-create their VA login. |
 | **Training Cohorts** | Create a cohort per training round, see who's enrolled and how many were hired from it. Just name + notes — mark a cohort "Start Training" or "Mark Finished" with one click, no dates to manage. |
 | **Recruitment (bulk import)** | Add applicants one at a time, or import a CSV in bulk (columns: `name, email, phone, source, cohort`) — handy for bringing in a whole training sign-up sheet at once. |
-| **Onboarding** | A checklist template auto-assigned to every new hire. Admins see completion % per VA; VAs check off their own steps. |
+| **Skills Assessment** | A public link (`/assessment`) for candidates to take a 15-question skills & aptitude test — grammar, numerical reasoning, attention to detail, and workplace judgment. Score shown immediately after submitting; specific wrong answers are never revealed to the candidate. Attempts auto-link to a matching applicant by email and show up right in their Recruitment card. Admins manage the question bank and review full right/wrong breakdowns from the Assessment page. |
+| **Onboarding** | A checklist template auto-assigned to every new hire, plus a "Welcome Packet" reference doc (work schedule, pay, probation terms, access instructions) and shared **Company Documents** (like your Policy Manual) shown to every VA on their onboarding page. Admins see completion % per VA; VAs check off their own steps. |
 | **Clients** | Track external clients and which VAs are assigned to each, with role + hourly rate. |
 | **Hours** | VAs log hours per client/date; admins review and approve, and see totals per VA. Admins can export a payroll-ready CSV. |
 | **Documents** | Each VA can upload certifications, signed agreements, and ID verification (PDF/image/doc, up to 8MB). Admins can view or upload on behalf of a VA. Lives inside the Onboarding page. |
 | **Public Apply Form** | A no-login page at `/apply` for prospective trainees to submit themselves into your pipeline. Share the link from the Recruitment page ("Copy Apply Link"). |
 | **Team** | Skills tags per VA (for matching to client needs) and weekly capacity tracking (booked hours vs. available hours, pulled from active client assignments). Also where you offboard a VA — records a reason, ends their active client assignments, and blocks their login, without deleting their history. |
+| **Reports** | Cohort → hire conversion rate over time, current pipeline funnel, and hires-per-month. |
+| **Settings** | Edit your company name and contact email — shown across the sidebar, login page, and public application form. |
+| **View as Employee** | Admins can preview the app exactly as a specific VA sees it — their onboarding checklist, clients, and hours — from the sidebar. Useful for troubleshooting what someone's actually seeing. |
 | **Email Notifications** | Sends a welcome email when someone's hired, and lets admins send a one-click onboarding reminder. Optional — the app works fine without it configured. |
 
 Two roles: **admin** (you / your team, sees everything) and **va** (each trainee/hire, sees only their own onboarding, clients and hours).
